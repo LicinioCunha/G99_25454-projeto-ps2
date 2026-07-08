@@ -1,12 +1,11 @@
-"""Dashboard interativo (Shiny for Python) — ESQUELETO.
+"""Dashboard interativo (Shiny for Python).
 
-Ponto de partida com duas vistas base:
+Vistas disponíveis:
   1. Evolução do total faturado por mês (com seletor de intervalo temporal).
   2. Comparação de clientes / análise de um cliente individual.
-
->>> TODO (grupo): definir e implementar UMA funcionalidade própria do grupo
-    (ver enunciado). Ex.: deteção de meses atípicos, top-N clientes, alertas
-    de NIB inválido, exportação, etc.
+  3. Funcionalidade própria — "Alertas de Validação": resumo, por ficheiro,
+     dos NIF/NIB que falham a validação (Anexos A e B do enunciado), para dar
+     visibilidade imediata à qualidade dos dados recebidos.
 
 Executar (a partir da raiz do projeto)::
 
@@ -16,6 +15,7 @@ Docs: https://shiny.posit.co/py/
 """
 from __future__ import annotations
 from pathlib import Path
+import pandas as pd
 import plotly.express as px
 from shiny import App, reactive, render, ui
 from shinywidgets import output_widget, render_plotly
@@ -34,6 +34,8 @@ DATA_DIR = str(Path(__file__).resolve().parent.parent / "data")
 FICHEIROS, AVISOS = carregar_pasta(DATA_DIR)
 MESES = list(ag.total_por_mes(FICHEIROS).keys())
 NIBS = ag.clientes(FICHEIROS)
+ALERTAS = ag.resumo_alertas(FICHEIROS)
+TOTAL_NIBS_INVALIDOS = sum(a["n_nibs_invalidos"] for a in ALERTAS)
 
 
 app_ui = ui.page_sidebar(
@@ -51,6 +53,7 @@ app_ui = ui.page_sidebar(
         ui.value_box("Ficheiros carregados", ui.output_text("n_ficheiros")),
         ui.value_box("Total no período (€)", ui.output_text("total_periodo")),
         ui.value_box("Avisos de estrutura", ui.output_text("n_avisos")),
+        ui.value_box("NIBs inválidos detetados", ui.output_text("n_nibs_invalidos")),
     ),
     ui.card(ui.card_header("Evolução mensal do total faturado"),
             output_widget("grafico_mensal")),
@@ -59,6 +62,10 @@ app_ui = ui.page_sidebar(
                 output_widget("grafico_clientes")),
         ui.card(ui.card_header("Cliente selecionado — evolução mensal"),
                 output_widget("grafico_cliente")),
+    ),
+    ui.card(
+        ui.card_header("Alertas de Validação (funcionalidade própria) — NIF/NIB por ficheiro"),
+        ui.output_data_frame("tabela_alertas"),
     ),
     title="Dashboard Débitos Diretos — IPCA Energy",
 )
@@ -83,6 +90,23 @@ def server(input, output, session):
     @render.text
     def n_avisos():
         return str(len(AVISOS))
+
+    @render.text
+    def n_nibs_invalidos():
+        return str(TOTAL_NIBS_INVALIDOS)
+
+    @render.data_frame
+    def tabela_alertas():
+        meses = set(meses_no_intervalo())
+        linhas = [a for a in ALERTAS if a["periodo"] in meses]
+        df = pd.DataFrame(linhas).rename(columns={
+            "periodo": "Período",
+            "nif": "NIF ordenante",
+            "nif_valido": "NIF válido",
+            "n_movimentos": "Nº movimentos",
+            "n_nibs_invalidos": "NIBs inválidos",
+        })
+        return render.DataGrid(df, filters=True)
 
     @render_plotly
     def grafico_mensal():

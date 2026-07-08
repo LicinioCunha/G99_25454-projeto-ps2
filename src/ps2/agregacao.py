@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import defaultdict
 from functools import reduce
 from .modelo import Ficheiro
+from .validacao import valida_nif, valida_nib
 
 
 def periodo(fich: Ficheiro) -> str:
@@ -48,3 +49,22 @@ def serie_cliente(ficheiros: list[Ficheiro], nib: str) -> dict[str, float]:
 def clientes(ficheiros: list[Ficheiro]) -> list[str]:
     """Lista ordenada de NIBs distintos presentes nos ficheiros."""
     return sorted({m.nib for f in ficheiros for m in f.movimentos})
+
+
+def resumo_alertas(ficheiros: list[Ficheiro]) -> list[dict]:
+    """Funcionalidade própria: resumo de alertas de NIF/NIB por ficheiro.
+
+    Para cada ficheiro, indica o período, se o NIF do ordenante é válido, e
+    quantos dos NIBs de cliente (movimentos tipo 2) falham a validação do
+    Anexo B. Serve de base à vista "Alertas de Validação" do dashboard.
+    """
+    return [
+        {
+            "periodo": periodo(f),
+            "nif": f.inicio.nif,
+            "nif_valido": valida_nif(f.inicio.nif),
+            "n_movimentos": len(f.movimentos),
+            "n_nibs_invalidos": sum(1 for m in f.movimentos if not valida_nib(m.nib)),
+        }
+        for f in ficheiros
+    ]
