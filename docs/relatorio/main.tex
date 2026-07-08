@@ -21,10 +21,11 @@
   frame=single,
   breaklines=true,
   showstringspaces=false,
+  language=Python,
 }
 
 \title{Trabalho Prático\\\large Análise de Débitos Diretos (PS2)}
-\author{Grupo 99 \\ A1 --- ... \\ A2 --- ... \\ A3 --- ...}
+\author{Grupo 99 --- Licínio Cunha (nº 25454) \\ \textit{trabalho realizado individualmente}}
 \date{Laboratórios de Informática --- LESI/LESIPL --- 2025/26}
 
 \begin{document}
@@ -39,58 +40,230 @@
 
 % ------------------------ capítulos --------------------------
 \chapter{Introdução}
-% Contexto, objetivos do trabalho e organização do documento.
-% Usar \emph{ênfase}, \textbf{negrito} e \textit{itálico} ao longo do texto.
+
+Os \emph{débitos diretos} são um dos meios de cobrança mais usados entre
+empresas e bancos em Portugal, comunicados através de ficheiros num formato
+de largura fixa conhecido por \textbf{PS2}. Este trabalho tem como objetivo
+ler, validar e analisar um conjunto de ficheiros PS2 (versão simplificada)
+com os débitos diretos recebidos por uma instituição bancária fictícia,
+\textit{IPCA Energy}, e apresentar os resultados num \emph{dashboard}
+interativo.
+
+O trabalho foi desenvolvido individualmente, seguindo o paradigma funcional
+(declarativo) pedido no enunciado: as funções que leem, validam e agregam os
+dados são \emph{puras} (sem efeitos secundários), recorrendo a
+\textit{dataclasses} imutáveis, compreensões de listas/dicionários e funções
+de ordem superior (\texttt{map}, \texttt{reduce}) em vez de ciclos com
+alteração de estado.
+
+Este documento organiza-se da seguinte forma: o Capítulo~\ref{chap:formato}
+descreve o formato PS2 e a estratégia de leitura; o
+Capítulo~\ref{chap:validacao} descreve as regras de validação aplicadas
+(estrutura, NIF e NIB); o Capítulo~\ref{chap:dashboard} apresenta o
+\textit{dashboard} desenvolvido, incluindo a funcionalidade própria; o
+Capítulo~\ref{chap:organizacao} descreve a organização do repositório; e o
+Capítulo~\ref{chap:conclusao} fecha com as conclusões e o trabalho futuro.
 
 \chapter{Formato PS2 e Leitura dos Dados}
-% Descrever o formato simplificado e a estratégia de leitura.
-% Incluir aqui uma listagem de código, ex.:
-%
-% \begin{lstlisting}[language=Python,caption={Listagem de ficheiros},label=lst:listar]
-% def listar_ficheiros_ps2(pasta):
-%     return sorted(Path(pasta).glob("DD_*.ps2"))
-% \end{lstlisting}
-%
-% referida no texto como Listagem~\ref{lst:listar}.
+\label{chap:formato}
+
+Cada ficheiro \texttt{DD\_AAAA\_MM.ps2} é composto por linhas de largura
+fixa, com três tipos de registo:
+
+\begin{description}
+  \item[Registo de Cabeçalho (tipo 1)] primeira linha do ficheiro; contém a
+    data de processamento, o nome e NIF da empresa ordenante, e os totais
+    declarados (valor e número de operações).
+  \item[Registo de Movimento (tipo 2)] uma linha por cada débito a um
+    cliente, identificado pelo respetivo NIB.
+  \item[Registo de Fim (tipo 9)] última linha; repete os totais do
+    cabeçalho para efeitos de validação e controlo.
+\end{description}
+
+As posições de cada campo (Tabela~\ref{tab:layout}) foram confirmadas por
+inspeção direta dos ficheiros de exemplo fornecidos, uma vez que descrevem
+uma versão simplificada do \textit{layout} PS2 oficial.
+
+\begin{table}[h]\centering
+  \begin{tabular}{lll}
+    \textbf{Registo} & \textbf{Campo} & \textbf{Posição (base 1)} \\ \hline
+    Cabeçalho (1) & data (AAAAMMDD)         & 2--9   \\
+                  & empresa                 & 10--52 \\
+                  & NIF                     & 53--61 \\
+                  & total (cêntimos)        & 62--75 \\
+                  & nº de registos          & 76--81 \\ \hline
+    Movimento (2) & referência / ADC        & 2--11  \\
+                  & NIB (21 dígitos)        & 12--32 \\
+                  & importância (cêntimos)  & 42--55 \\
+                  & descrição               & 56--82 \\ \hline
+    Fim (9)       & total (cêntimos)        & 2--15  \\
+                  & nº de registos          & 16--21 \\
+  \end{tabular}
+  \caption{Posições dos campos no formato PS2 simplificado}\label{tab:layout}
+\end{table}
+
+A listagem de ficheiros usa \texttt{pathlib}\cite{pythondocs} para descobrir,
+de forma ordenada, todos os ficheiros \texttt{DD\_*.ps2} numa pasta, sem
+depender de nomes escritos manualmente (Listagem~\ref{lst:listar}):
+
+\begin{lstlisting}[caption={Listagem de ficheiros PS2 (\texttt{ps2/leitura.py})},label=lst:listar]
+def listar_ficheiros_ps2(pasta: str) -> list[Path]:
+    return sorted(Path(pasta).glob("DD_*.ps2"))
+\end{lstlisting}
+
+Cada linha é depois interpretada por \textit{slicing} em objetos de domínio
+imutáveis (\texttt{RegistoInicio}, \texttt{RegistoMovimento},
+\texttt{RegistoFim}), como no exemplo da Listagem~\ref{lst:parse} para os
+registos de movimento:
+
+\begin{lstlisting}[caption={Parsing de um registo de movimento (\texttt{ps2/parsing.py})},label=lst:parse]
+def parse_movimento(linha: str) -> RegistoMovimento:
+    return RegistoMovimento(
+        referencia=linha[1:11],
+        nib=linha[11:32],
+        importancia_cent=int(linha[41:55]),
+        descricao=linha[55:].strip(),
+    )
+\end{lstlisting}
 
 \chapter{Validação}
-% Validação de estrutura, NIF (Anexo A) e NIB (Anexo B).
-% Incluir uma tabela, ex.:
-%
-% \begin{table}[h]\centering
-%   \begin{tabular}{lcc}
-%     Ficheiro & Estrutura & NIF/NIB \\ \hline
-%     ...      & OK        & ...     \\
-%   \end{tabular}
-%   \caption{Resultados da validação}\label{tab:validacao}
-% \end{table}
+\label{chap:validacao}
+
+A validação está organizada em três níveis, todos implementados em
+\texttt{ps2/validacao.py} através de funções puras que devolvem
+\texttt{bool} ou listas de mensagens de erro:
+
+\begin{enumerate}
+  \item \textbf{Estrutura do ficheiro}: a primeira linha tem de ser tipo 1,
+    a última tipo 9, todas as intermédias tipo 2; a data de processamento
+    tem de ser válida; e o total/número de registos declarados no
+    cabeçalho e no fim têm de coincidir com a soma real dos movimentos.
+  \item \textbf{NIF do ordenante} (Anexo A): 9 dígitos, primeiro dígito em
+    $\{1,2,5,6,8,9\}$ e dígito de controlo calculado por soma ponderada
+    módulo 11.
+  \item \textbf{NIB do cliente} (Anexo B): 21 dígitos e resto 1 na divisão
+    por 97 do número completo, tratado como inteiro de precisão arbitrária
+    (nativo em Python, ao contrário de outras linguagens onde excede os
+    tipos inteiros nativos).
+\end{enumerate}
+
+\textbf{Nota importante:} ao implementar literalmente o algoritmo do
+Anexo B, verificou-se que o \emph{próprio exemplo do enunciado}
+(\texttt{003506510000258741254}) dá resto 96, não 1 --- ou seja, não
+verifica a regra que o enunciado apresenta como exemplo de NIB válido. O
+mesmo acontece com o NIF de exemplo do Anexo A. Optou-se por implementar as
+regras exatamente como descritas (com testes automáticos que documentam
+esta discrepância) e assinalar a questão para confirmação com o docente, em
+vez de ``corrigir'' silenciosamente o algoritmo.
+
+Aplicando estas regras aos 35 ficheiros em \texttt{data/} obtém-se o resumo
+da Tabela~\ref{tab:validacao}: a estrutura está sempre correta (totais e
+contagens coerentes), mas o NIF do ordenante e todos os NIBs de cliente
+falham a validação literal --- o que motivou a funcionalidade própria
+descrita no capítulo seguinte.
+
+\begin{table}[h]\centering
+  \begin{tabular}{lccc}
+    \textbf{Verificação} & \textbf{Ficheiros afetados} & \textbf{Total} & \textbf{\%} \\ \hline
+    Estrutura (totais/contagens) & 0 / 35  & 35 & 0\%   \\
+    NIF do ordenante inválido    & 35 / 35 & 35 & 100\% \\
+    NIBs de cliente inválidos    & 350 / 350 & 350 & 100\% \\
+  \end{tabular}
+  \caption{Resultados da validação dos ficheiros de \texttt{data/}}\label{tab:validacao}
+\end{table}
 
 \chapter{Dashboard}
-% Descrição da solução Shiny e das vistas implementadas.
-% Incluir uma figura (captura de ecrã), ex.:
-%
-% \begin{figure}[h]\centering
-%   \includegraphics[width=0.8\textwidth]{img/dashboard.png}
-%   \caption{Vista principal do dashboard}\label{fig:dashboard}
-% \end{figure}
+\label{chap:dashboard}
+
+O \textit{dashboard} foi implementado com a \textit{framework}
+Shiny for Python\cite{shiny} (\texttt{src/app.py}) e disponibiliza três
+grupos de vistas:
+
+\begin{itemize}
+  \item \textbf{Evolução mensal}: gráfico de linha do total faturado,
+    filtrável por mês inicial e final.
+  \item \textbf{Comparação de clientes}: gráfico de barras com o total por
+    cliente (NIB) no período completo, e um segundo gráfico com a evolução
+    mensal de um cliente selecionado.
+  \item \textbf{Alertas de Validação} --- \emph{funcionalidade própria}:
+    uma tabela que resume, ficheiro a ficheiro, o NIF do ordenante, se é
+    válido, e quantos NIBs de cliente falham a validação, acompanhada de um
+    contador global de NIBs inválidos. Esta vista aproveita diretamente as
+    funções de \texttt{ps2/validacao.py}, agregadas em
+    \texttt{ps2/agregacao.py} através de uma compreensão de lista
+    (Listagem~\ref{lst:alertas}), e dá visibilidade imediata a problemas de
+    qualidade de dados sem ser preciso consultar a consola.
+\end{itemize}
+
+\begin{lstlisting}[caption={Agregação da funcionalidade própria (\texttt{ps2/agregacao.py})},label=lst:alertas]
+def resumo_alertas(ficheiros: list[Ficheiro]) -> list[dict]:
+    return [
+        {
+            "periodo": periodo(f),
+            "nif": f.inicio.nif,
+            "nif_valido": valida_nif(f.inicio.nif),
+            "n_movimentos": len(f.movimentos),
+            "n_nibs_invalidos": sum(
+                1 for m in f.movimentos if not valida_nib(m.nib)
+            ),
+        }
+        for f in ficheiros
+    ]
+\end{lstlisting}
+
+% Figura do dashboard: gerar com "shiny run --reload src/app.py", abrir no
+% browser, tirar um screenshot e guardar em docs/relatorio/img/dashboard.png
+% antes de compilar a versao final do relatorio.
+\begin{figure}[h]\centering
+\fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
+\textit{(screenshot do dashboard --- ver nota em} \texttt{docs/relatorio/img/})
+\vspace{2cm}}}
+\caption{Vista principal do dashboard, com a tabela de Alertas de Validação}\label{fig:dashboard}
+\end{figure}
 
 \chapter{Organização do Projeto}
-% Aqui inclui-se o grafo TikZ da hierarquia de pastas (pedido no enunciado).
+\label{chap:organizacao}
+
+O código está modularizado em ficheiros de responsabilidade única dentro do
+pacote \texttt{ps2} (Figura~\ref{fig:arvore}): leitura, modelo de domínio,
+\textit{parsing}, validação, agregação e carregamento de alto nível, cada um
+testado isoladamente em \texttt{tests/}. Esta separação permite testar, por
+exemplo, a validação de NIF sem depender da leitura de ficheiros reais.
+
 \begin{figure}[h]\centering
 \begin{tikzpicture}[every node/.style={draw,rounded corners,font=\small},
                     level distance=10mm, sibling distance=22mm]
   \node {projeto-ps2}
     child { node {data} }
     child { node {src}
-      child { node {ps2} }
-    }
+      child { node {ps2} } }
+    child { node {tests} }
     child { node {docs} };
 \end{tikzpicture}
 \caption{Hierarquia de pastas do projeto}\label{fig:arvore}
 \end{figure}
 
+O repositório Git segue uma branch por funcionalidade (\texttt{feature-*}),
+integrada em \texttt{main} através de \textit{pull requests} no GitHub, sem
+eliminar as branches após a integração --- estratégia detalhada no
+\texttt{README.md}.
+
 \chapter{Conclusão}
-% Síntese, dificuldades e trabalho futuro.
+\label{chap:conclusao}
+
+O trabalho cumpre o ciclo pedido no enunciado: leitura dos ficheiros PS2,
+validação de estrutura e de NIF/NIB, agregação da informação e um
+\textit{dashboard} interativo com uma funcionalidade própria de alertas de
+validação. A maior dificuldade foi perceber que os próprios exemplos dos
+Anexos A e B do enunciado não verificam o algoritmo que descrevem; optou-se
+por implementar as regras tal como documentadas e documentar a discrepância
+em testes automáticos, em vez de adaptar silenciosamente o critério de
+validação.
+
+Como trabalho futuro, ficam por explorar: exportação dos alertas de
+validação para CSV, deteção de meses atípicos por desvio-padrão em relação à
+média histórica, e suporte ao IBAN (\texttt{PT50 + NIB}), que está a
+substituir o NIB isolado nas comunicações bancárias.
 
 % ------------------------ bibliografia -----------------------
 \bibliographystyle{plain}
