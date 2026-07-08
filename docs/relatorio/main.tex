@@ -12,6 +12,7 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{tikz}          % para o grafo da hierarquia de pastas
+\usetikzlibrary{positioning, arrows.meta}
 \usepackage{caption}
 \usepackage{float}         % para forcar a posicao exata de figuras com [H]
 \usepackage{etoolbox}
@@ -75,6 +76,7 @@ descreve o formato PS2 e a estratégia de leitura; o
 Capítulo~\ref{chap:validacao} descreve as regras de validação aplicadas
 (estrutura, NIF e NIB); o Capítulo~\ref{chap:dashboard} apresenta o
 \textit{dashboard} desenvolvido, incluindo a funcionalidade própria; o
+Capítulo~\ref{chap:testes} descreve a estratégia de testes automáticos; o
 Capítulo~\ref{chap:organizacao} descreve a organização do repositório; e o
 Capítulo~\ref{chap:conclusao} fecha com as conclusões e o trabalho futuro.
 
@@ -161,6 +163,22 @@ A validação está organizada em três níveis, todos implementados em
     tipos inteiros nativos).
 \end{enumerate}
 
+A validação do NIF (Listagem~\ref{lst:nif}) segue diretamente o Anexo A: o
+dígito de controlo é calculado por soma ponderada dos primeiros 8 dígitos e
+comparado com o 9º.
+
+\begin{lstlisting}[caption={Validação de NIF (\texttt{ps2/validacao.py})},label=lst:nif]
+def valida_nif(nif: str) -> bool:
+    if len(nif) != 9 or not nif.isdigit():
+        return False
+    if nif[0] not in "125689":
+        return False
+    soma = sum(int(nif[i]) * (9 - i) for i in range(8))
+    resto = soma % 11
+    controlo = 0 if resto in (0, 1) else 11 - resto
+    return controlo == int(nif[8])
+\end{lstlisting}
+
 \textbf{Nota importante:} ao implementar literalmente o algoritmo do
 Anexo B, verificou-se que o \emph{próprio exemplo do enunciado}
 (\texttt{003506510000258741254}) dá resto 96, não 1 --- ou seja, não
@@ -230,6 +248,51 @@ def resumo_alertas(ficheiros: list[Ficheiro]) -> list[dict]:
 \caption{Vista principal do dashboard, com os filtros de período/cliente e a tabela de Alertas de Validação}\label{fig:dashboard}
 \end{figure}
 
+\chapter{Testes}
+\label{chap:testes}
+
+Seguiu-se uma abordagem próxima de TDD: cada módulo do pacote \texttt{ps2}
+tem um ficheiro de testes correspondente em \texttt{tests/}, usando
+\texttt{pytest}. Os testes dividem-se em dois níveis (Tabela~\ref{tab:testes}):
+testes unitários, que isolam uma função pura (ex.: um NIF ou NIB específico,
+uma linha de exemplo), e um teste de integração que carrega a pasta
+\texttt{data/} completa e confirma que os 35 ficheiros ficam estruturalmente
+válidos.
+
+\begin{table}[h]\centering
+  \begin{tabular}{lcl}
+    \textbf{Ficheiro} & \textbf{Nº testes} & \textbf{Cobre} \\ \hline
+    \texttt{test\_validacao.py}  & 11 & estrutura, NIF, NIB \\
+    \texttt{test\_parsing.py}    & 3  & \textit{parsing} de cabeçalho/movimento/fim \\
+    \texttt{test\_agregacao.py}  & 6  & totais por mês/cliente, alertas \\
+    \texttt{test\_carregador.py} & 2  & integração com \texttt{data/} \\ \hline
+    \textbf{Total} & \textbf{22} & \\
+  \end{tabular}
+  \caption{Distribuição dos testes automáticos}\label{tab:testes}
+\end{table}
+
+O teste de integração (Listagem~\ref{lst:carregador}) exercita
+\texttt{carregar\_pasta}, que combina listagem, leitura e validação de
+estrutura numa única função de alto nível, devolvendo separadamente os
+ficheiros válidos e os avisos encontrados:
+
+\begin{lstlisting}[caption={Carregamento de alto nível (\texttt{ps2/carregador.py})},label=lst:carregador]
+def carregar_pasta(pasta: str = "./data") -> tuple[list[Ficheiro], list[str]]:
+    ficheiros: list[Ficheiro] = []
+    avisos: list[str] = []
+    for caminho in listar_ficheiros_ps2(pasta):
+        erros = valida_estrutura(caminho.name, ler_linhas(caminho))
+        if erros:
+            avisos.extend(erros)
+        else:
+            ficheiros.append(carregar_ficheiro(caminho))
+    return ficheiros, avisos
+\end{lstlisting}
+
+Os testes correm com \texttt{pytest -v} (ou \texttt{make test}, ver
+\texttt{Makefile}) e estão também configurados no \texttt{.vscode/settings.json}
+para deteção automática no VS Code.
+
 \chapter{Organização do Projeto}
 \label{chap:organizacao}
 
@@ -238,6 +301,26 @@ pacote \texttt{ps2} (Figura~\ref{fig:arvore}): leitura, modelo de domínio,
 \textit{parsing}, validação, agregação e carregamento de alto nível, cada um
 testado isoladamente em \texttt{tests/}. Esta separação permite testar, por
 exemplo, a validação de NIF sem depender da leitura de ficheiros reais.
+
+\begin{figure}[h]\centering
+\begin{tikzpicture}[
+    node/.style={draw,rounded corners,font=\small,align=center,minimum height=8mm},
+    arr/.style={-Latex},
+  ]
+  \node[node] (ficheiro) {ficheiro\\\texttt{.ps2}};
+  \node[node, right=8mm of ficheiro] (leitura) {\texttt{leitura.py}};
+  \node[node, right=8mm of leitura] (parsing) {\texttt{parsing.py}};
+  \node[node, right=8mm of parsing] (validacao) {\texttt{validacao.py}};
+  \node[node, below=10mm of parsing] (agregacao) {\texttt{agregacao.py}};
+  \node[node, right=8mm of agregacao] (dashboard) {\textit{dashboard}\\(\texttt{app.py})};
+  \draw[arr] (ficheiro) -- (leitura);
+  \draw[arr] (leitura) -- (parsing);
+  \draw[arr] (parsing) -- (validacao);
+  \draw[arr] (validacao) -- (agregacao);
+  \draw[arr] (agregacao) -- (dashboard);
+\end{tikzpicture}
+\caption{Fluxo de dados: do ficheiro PS2 ao dashboard}\label{fig:fluxo}
+\end{figure}
 
 \begin{figure}[h]\centering
 \begin{tikzpicture}[every node/.style={draw,rounded corners,font=\small},
