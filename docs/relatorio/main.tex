@@ -207,6 +207,7 @@ grupos de vistas:
     qualidade de dados sem ser preciso consultar a consola.
 \end{itemize}
 
+\clearpage
 \begin{lstlisting}[caption={Agregação da funcionalidade própria (\texttt{ps2/agregacao.py})},label=lst:alertas]
 def resumo_alertas(ficheiros: list[Ficheiro]) -> list[dict]:
     return [
@@ -223,14 +224,10 @@ def resumo_alertas(ficheiros: list[Ficheiro]) -> list[dict]:
     ]
 \end{lstlisting}
 
-% Figura do dashboard: gerar com "shiny run --reload src/app.py", abrir no
-% browser, tirar um screenshot e guardar em docs/relatorio/img/dashboard.png
-% antes de compilar a versao final do relatorio.
-\begin{figure}[h]\centering
-\fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}
-\textit{(screenshot do dashboard --- ver nota em} \texttt{docs/relatorio/img/})
-\vspace{2cm}}}
-\caption{Vista principal do dashboard, com a tabela de Alertas de Validação}\label{fig:dashboard}
+\clearpage
+\begin{figure}[!htb]\centering
+\includegraphics[width=0.85\textwidth]{img/dashboard.png}
+\caption{Vista principal do dashboard, com os filtros de período/cliente e a tabela de Alertas de Validação}\label{fig:dashboard}
 \end{figure}
 
 \chapter{Organização do Projeto}
