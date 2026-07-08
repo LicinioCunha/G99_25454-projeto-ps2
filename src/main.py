@@ -17,6 +17,11 @@ from ps2.validacao import valida_estrutura, valida_ficheiro
 
 
 def main(pasta: str = "./data") -> None:
+    """Valida todos os ficheiros PS2 de ``pasta`` e imprime um relatório.
+
+    Para cada ficheiro reporta ``[OK]`` ou ``[ERROS]`` seguido da lista de
+    problemas encontrados (estrutura, NIF do ordenante, NIBs de cliente).
+    """
     ficheiros = listar_ficheiros_ps2(pasta)
     print(f"{len(ficheiros)} ficheiros encontrados em {pasta}\n")
     for cam in ficheiros:

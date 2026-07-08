@@ -38,6 +38,7 @@ ALERTAS = ag.resumo_alertas(FICHEIROS)
 TOTAL_NIBS_INVALIDOS = sum(a["n_nibs_invalidos"] for a in ALERTAS)
 
 
+# interface do dashboard: sidebar de filtros + value_boxes + graficos + tabela
 app_ui = ui.page_sidebar(
     ui.sidebar(
         ui.h4("Filtros"),
@@ -72,31 +73,44 @@ app_ui = ui.page_sidebar(
 
 
 def server(input, output, session):
+    """Liga os \"inputs\" da UI (filtros) aos \"outputs\" (texto, gráficos, tabela).
+
+    Todos os cálculos partem dos dados carregados uma única vez ao arrancar
+    a app (:data:`FICHEIROS`, :data:`ALERTAS`, etc.); as funções abaixo são
+    reativas ao estado dos filtros (:func:`meses_no_intervalo`, seleção de
+    cliente).
+    """
 
     @reactive.calc
     def meses_no_intervalo() -> list[str]:
+        """Lista de períodos AAAA-MM entre os filtros de mês inicial/final."""
         ini, fim = input.mes_ini(), input.mes_fim()
         return [m for m in MESES if ini <= m <= fim]
 
     @render.text
     def n_ficheiros():
+        """Nº total de ficheiros PS2 carregados de ``data/``."""
         return str(len(FICHEIROS))
 
     @render.text
     def total_periodo():
+        """Total faturado (€), somado apenas nos meses do intervalo selecionado."""
         tot = ag.total_por_mes(FICHEIROS)
         return f"{sum(v for m, v in tot.items() if m in meses_no_intervalo()):,.2f}"
 
     @render.text
     def n_avisos():
+        """Nº de ficheiros que falharam a validação de estrutura."""
         return str(len(AVISOS))
 
     @render.text
     def n_nibs_invalidos():
+        """Nº total de NIBs de cliente inválidos, em todos os ficheiros."""
         return str(TOTAL_NIBS_INVALIDOS)
 
     @render.data_frame
     def tabela_alertas():
+        """Tabela de Alertas de Validação (funcionalidade própria), filtrada por período."""
         meses = set(meses_no_intervalo())
         linhas = [a for a in ALERTAS if a["periodo"] in meses]
         df = pd.DataFrame(linhas).rename(columns={
@@ -110,6 +124,7 @@ def server(input, output, session):
 
     @render_plotly
     def grafico_mensal():
+        """Gráfico de linha: total faturado por mês, no intervalo selecionado."""
         tot = ag.total_por_mes(FICHEIROS)
         meses = meses_no_intervalo()
         fig = px.line(x=meses, y=[tot[m] for m in meses], markers=True,
@@ -118,6 +133,7 @@ def server(input, output, session):
 
     @render_plotly
     def grafico_clientes():
+        """Gráfico de barras: total faturado por cliente (NIB), período completo."""
         tot = ag.total_por_cliente(FICHEIROS)
         # NIB abreviado para leitura
         nibs = list(tot.keys())
@@ -127,6 +143,7 @@ def server(input, output, session):
 
     @render_plotly
     def grafico_cliente():
+        """Gráfico de barras: evolução mensal do cliente (NIB) selecionado."""
         serie = ag.serie_cliente(FICHEIROS, input.nib())
         meses = [m for m in serie if m in meses_no_intervalo()]
         fig = px.bar(x=meses, y=[serie[m] for m in meses],
