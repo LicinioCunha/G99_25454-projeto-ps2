@@ -1,0 +1,6 @@
+# Dashboard e gráficos
+shiny>=1.0
+shinywidgets>=0.3
+plotly>=5.0
+pandas>=2.0
+numpy>=1.24

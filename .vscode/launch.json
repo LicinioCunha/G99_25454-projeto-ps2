@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Validar ficheiros (main.py)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/main.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Dashboard Shiny",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "shiny",
+      "args": ["run", "--reload", "src/app.py"],
+      "console": "integratedTerminal"
+    }
+  ]
+}
