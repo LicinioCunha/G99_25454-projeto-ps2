@@ -100,7 +100,7 @@ As posições de cada campo (Tabela~\ref{tab:layout}) foram confirmadas por
 inspeção direta dos ficheiros de exemplo fornecidos, uma vez que descrevem
 uma versão simplificada do \textit{layout} PS2 oficial.
 
-\begin{table}[h]\centering
+\begin{table}[H]\centering
   \begin{tabular}{lll}
     \textbf{Registo} & \textbf{Campo} & \textbf{Posição (base 1)} \\ \hline
     Cabeçalho (1) & data (AAAAMMDD)         & 2--9   \\
@@ -194,7 +194,7 @@ contagens coerentes), mas o NIF do ordenante e todos os NIBs de cliente
 falham a validação literal --- o que motivou a funcionalidade própria
 descrita no capítulo seguinte.
 
-\begin{table}[h]\centering
+\begin{table}[H]\centering
   \begin{tabular}{lccc}
     \textbf{Verificação} & \textbf{Ficheiros afetados} & \textbf{Total} & \textbf{\%} \\ \hline
     Estrutura (totais/contagens) & 0 / 35  & 35 & 0\%   \\
@@ -259,7 +259,7 @@ uma linha de exemplo), e um teste de integração que carrega a pasta
 \texttt{data/} completa e confirma que os 35 ficheiros ficam estruturalmente
 válidos.
 
-\begin{table}[h]\centering
+\begin{table}[H]\centering
   \begin{tabular}{lcl}
     \textbf{Ficheiro} & \textbf{Nº testes} & \textbf{Cobre} \\ \hline
     \texttt{test\_validacao.py}  & 11 & estrutura, NIF, NIB \\
@@ -302,7 +302,7 @@ pacote \texttt{ps2} (Figura~\ref{fig:arvore}): leitura, modelo de domínio,
 testado isoladamente em \texttt{tests/}. Esta separação permite testar, por
 exemplo, a validação de NIF sem depender da leitura de ficheiros reais.
 
-\begin{figure}[h]\centering
+\begin{figure}[H]\centering
 \begin{tikzpicture}[
     node/.style={draw,rounded corners,font=\small,align=center,minimum height=8mm},
     arr/.style={-Latex},
@@ -322,7 +322,7 @@ exemplo, a validação de NIF sem depender da leitura de ficheiros reais.
 \caption{Fluxo de dados: do ficheiro PS2 ao dashboard}\label{fig:fluxo}
 \end{figure}
 
-\begin{figure}[h]\centering
+\begin{figure}[H]\centering
 \begin{tikzpicture}[every node/.style={draw,rounded corners,font=\small},
                     level distance=10mm, sibling distance=22mm]
   \node {projeto-ps2}
