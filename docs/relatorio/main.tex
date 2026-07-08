@@ -6,7 +6,7 @@
 \usepackage[portuguese]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage[margin=2.5cm]{geometry}
+\usepackage[margin=2.2cm]{geometry}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{listings}
@@ -17,6 +17,8 @@
 \usepackage{float}         % para forcar a posicao exata de figuras com [H]
 \usepackage{etoolbox}
 \usepackage{titlesec}
+\usepackage{enumitem}
+\setlist{itemsep=0.2em, topsep=0.3em}
 
 % documento tem de caber em 10 paginas: capitulos nao forcam quebra de
 % pagina e o titulo do capitulo fica mais compacto (em vez do estilo
@@ -24,8 +26,10 @@
 \makeatletter
 \patchcmd{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}
 \makeatother
-\titlespacing*{\chapter}{0pt}{2.2em}{1.2em}
+\titlespacing*{\chapter}{0pt}{1.5em}{0.8em}
 \titleformat{\chapter}[hang]{\normalfont\Large\bfseries}{\thechapter.}{0.6em}{}
+\titlespacing*{\section}{0pt}{0.9em}{0.4em}
+\titlespacing*{\subsection}{0pt}{0.7em}{0.3em}
 
 % estilo básico para listagens de código
 \lstset{
@@ -36,6 +40,8 @@
   breaklines=true,
   showstringspaces=false,
   language=Python,
+  aboveskip=0.6em,
+  belowskip=0.3em,
 }
 
 \title{Trabalho Prático\\\large Análise de Débitos Diretos (PS2)}
@@ -83,6 +89,8 @@ Capítulo~\ref{chap:conclusao} fecha com as conclusões e o trabalho futuro.
 \chapter{Formato PS2 e Leitura dos Dados}
 \label{chap:formato}
 
+\section{Estrutura dos Registos}
+
 Cada ficheiro \texttt{DD\_AAAA\_MM.ps2} é composto por linhas de largura
 fixa, com três tipos de registo:
 
@@ -118,6 +126,8 @@ uma versão simplificada do \textit{layout} PS2 oficial.
   \caption{Posições dos campos no formato PS2 simplificado}\label{tab:layout}
 \end{table}
 
+\section{Leitura de Ficheiros}
+
 A listagem de ficheiros usa \texttt{pathlib}\cite{pythondocs} para descobrir,
 de forma ordenada, todos os ficheiros \texttt{DD\_*.ps2} numa pasta, sem
 depender de nomes escritos manualmente (Listagem~\ref{lst:listar}):
@@ -126,6 +136,8 @@ depender de nomes escritos manualmente (Listagem~\ref{lst:listar}):
 def listar_ficheiros_ps2(pasta: str) -> list[Path]:
     return sorted(Path(pasta).glob("DD_*.ps2"))
 \end{lstlisting}
+
+\section{Parsing dos Registos}
 
 Cada linha é depois interpretada por \textit{slicing} em objetos de domínio
 imutáveis (\texttt{RegistoInicio}, \texttt{RegistoMovimento},
@@ -147,25 +159,20 @@ def parse_movimento(linha: str) -> RegistoMovimento:
 
 A validação está organizada em três níveis, todos implementados em
 \texttt{ps2/validacao.py} através de funções puras que devolvem
-\texttt{bool} ou listas de mensagens de erro:
+\texttt{bool} ou listas de mensagens de erro.
 
-\begin{enumerate}
-  \item \textbf{Estrutura do ficheiro}: a primeira linha tem de ser tipo 1,
-    a última tipo 9, todas as intermédias tipo 2; a data de processamento
-    tem de ser válida; e o total/número de registos declarados no
-    cabeçalho e no fim têm de coincidir com a soma real dos movimentos.
-  \item \textbf{NIF do ordenante} (Anexo A): 9 dígitos, primeiro dígito em
-    $\{1,2,5,6,8,9\}$ e dígito de controlo calculado por soma ponderada
-    módulo 11.
-  \item \textbf{NIB do cliente} (Anexo B): 21 dígitos e resto 1 na divisão
-    por 97 do número completo, tratado como inteiro de precisão arbitrária
-    (nativo em Python, ao contrário de outras linguagens onde excede os
-    tipos inteiros nativos).
-\end{enumerate}
+\section{Validação de Estrutura}
 
-A validação do NIF (Listagem~\ref{lst:nif}) segue diretamente o Anexo A: o
-dígito de controlo é calculado por soma ponderada dos primeiros 8 dígitos e
-comparado com o 9º.
+A primeira linha tem de ser tipo 1, a última tipo 9, todas as intermédias
+tipo 2; a data de processamento tem de ser válida; e o total/número de
+registos declarados no cabeçalho e no fim têm de coincidir com a soma real
+dos movimentos.
+
+\section{Validação de NIF (Anexo A)}
+
+O NIF do ordenante tem 9 dígitos, o primeiro em $\{1,2,5,6,8,9\}$, e um
+dígito de controlo (Listagem~\ref{lst:nif}) calculado por soma ponderada dos
+primeiros 8 dígitos módulo 11, comparado com o 9º:
 
 \begin{lstlisting}[caption={Validação de NIF (\texttt{ps2/validacao.py})},label=lst:nif]
 def valida_nif(nif: str) -> bool:
@@ -179,6 +186,28 @@ def valida_nif(nif: str) -> bool:
     return controlo == int(nif[8])
 \end{lstlisting}
 
+A Tabela~\ref{tab:nif-exemplos} mostra dois casos usados nos testes
+automáticos (\texttt{tests/test\_validacao.py}): o próprio exemplo do
+Anexo A, e um NIF com dígito de controlo correto.
+
+\begin{table}[H]\centering
+  \begin{tabular}{lcccc}
+    \textbf{NIF} & \textbf{1º dígito} & \textbf{Soma ponderada} & \textbf{Resto (mod 11)} & \textbf{Válido?} \\ \hline
+    501845923 & 5 (válido) & 171 & 6 (controlo=5) & Não (9º dígito é 3) \\
+    501442600 & 5 (válido) & 122 & 1 (controlo=0) & Sim \\
+  \end{tabular}
+  \caption{Exemplos de validação de NIF}\label{tab:nif-exemplos}
+\end{table}
+
+\section{Validação de NIB (Anexo B)}
+
+O NIB do cliente tem 21 dígitos; a regra do Anexo B pede resto 1 na divisão
+por 97 do número completo, tratado como inteiro de precisão arbitrária
+(nativo em Python, ao contrário de outras linguagens onde excede os tipos
+inteiros nativos).
+
+\subsection{Discrepância nos Exemplos do Enunciado}
+
 \textbf{Nota importante:} ao implementar literalmente o algoritmo do
 Anexo B, verificou-se que o \emph{próprio exemplo do enunciado}
 (\texttt{003506510000258741254}) dá resto 96, não 1 --- ou seja, não
@@ -187,6 +216,8 @@ mesmo acontece com o NIF de exemplo do Anexo A. Optou-se por implementar as
 regras exatamente como descritas (com testes automáticos que documentam
 esta discrepância) e assinalar a questão para confirmação com o docente, em
 vez de ``corrigir'' silenciosamente o algoritmo.
+
+\section{Resultados nos Dados Fornecidos}
 
 Aplicando estas regras aos 35 ficheiros em \texttt{data/} obtém-se o resumo
 da Tabela~\ref{tab:validacao}: a estrutura está sempre correta (totais e
@@ -208,8 +239,11 @@ descrita no capítulo seguinte.
 \label{chap:dashboard}
 
 O \textit{dashboard} foi implementado com a \textit{framework}
-Shiny for Python\cite{shiny} (\texttt{src/app.py}) e disponibiliza três
-grupos de vistas:
+Shiny for Python\cite{shiny} (\texttt{src/app.py}).
+
+\section{Vistas do Dashboard}
+
+O \textit{dashboard} disponibiliza três grupos de vistas:
 
 \begin{itemize}
   \item \textbf{Evolução mensal}: gráfico de linha do total faturado,
@@ -220,12 +254,15 @@ grupos de vistas:
   \item \textbf{Alertas de Validação} --- \emph{funcionalidade própria}:
     uma tabela que resume, ficheiro a ficheiro, o NIF do ordenante, se é
     válido, e quantos NIBs de cliente falham a validação, acompanhada de um
-    contador global de NIBs inválidos. Esta vista aproveita diretamente as
-    funções de \texttt{ps2/validacao.py}, agregadas em
-    \texttt{ps2/agregacao.py} através de uma compreensão de lista
-    (Listagem~\ref{lst:alertas}), e dá visibilidade imediata a problemas de
-    qualidade de dados sem ser preciso consultar a consola.
+    contador global de NIBs inválidos.
 \end{itemize}
+
+\section{Funcionalidade Própria: Alertas de Validação}
+
+Esta vista aproveita diretamente as funções de \texttt{ps2/validacao.py},
+agregadas em \texttt{ps2/agregacao.py} através de uma compreensão de lista
+(Listagem~\ref{lst:alertas}), e dá visibilidade imediata a problemas de
+qualidade de dados sem ser preciso consultar a consola.
 
 \begin{lstlisting}[caption={Agregação da funcionalidade própria (\texttt{ps2/agregacao.py})},label=lst:alertas]
 def resumo_alertas(ficheiros: list[Ficheiro]) -> list[dict]:
@@ -251,6 +288,8 @@ def resumo_alertas(ficheiros: list[Ficheiro]) -> list[dict]:
 \chapter{Testes}
 \label{chap:testes}
 
+\section{Estratégia e Cobertura}
+
 Seguiu-se uma abordagem próxima de TDD: cada módulo do pacote \texttt{ps2}
 tem um ficheiro de testes correspondente em \texttt{tests/}, usando
 \texttt{pytest}. Os testes dividem-se em dois níveis (Tabela~\ref{tab:testes}):
@@ -270,6 +309,8 @@ válidos.
   \end{tabular}
   \caption{Distribuição dos testes automáticos}\label{tab:testes}
 \end{table}
+
+\section{Teste de Integração}
 
 O teste de integração (Listagem~\ref{lst:carregador}) exercita
 \texttt{carregar\_pasta}, que combina listagem, leitura e validação de
@@ -296,11 +337,15 @@ para deteção automática no VS Code.
 \chapter{Organização do Projeto}
 \label{chap:organizacao}
 
+\section{Modularização do Código}
+
 O código está modularizado em ficheiros de responsabilidade única dentro do
 pacote \texttt{ps2} (Figura~\ref{fig:arvore}): leitura, modelo de domínio,
 \textit{parsing}, validação, agregação e carregamento de alto nível, cada um
 testado isoladamente em \texttt{tests/}. Esta separação permite testar, por
 exemplo, a validação de NIF sem depender da leitura de ficheiros reais.
+
+\section{Fluxo de Dados}
 
 \begin{figure}[H]\centering
 \begin{tikzpicture}[
@@ -322,6 +367,8 @@ exemplo, a validação de NIF sem depender da leitura de ficheiros reais.
 \caption{Fluxo de dados: do ficheiro PS2 ao dashboard}\label{fig:fluxo}
 \end{figure}
 
+\section{Estrutura de Pastas}
+
 \begin{figure}[H]\centering
 \begin{tikzpicture}[every node/.style={draw,rounded corners,font=\small},
                     level distance=10mm, sibling distance=22mm]
@@ -335,10 +382,41 @@ exemplo, a validação de NIF sem depender da leitura de ficheiros reais.
 \caption{Hierarquia de pastas do projeto}\label{fig:arvore}
 \end{figure}
 
+\section{Instalação e Execução}
+
+O projeto usa um ambiente virtual Python e um \texttt{Makefile} para
+automatizar as tarefas mais comuns:
+
+\begin{lstlisting}[language=bash,caption={Automação de tarefas (\texttt{Makefile})},label=lst:makefile]
+make install    # cria o venv e instala requirements.txt
+make test       # corre a suite de testes (pytest -v)
+make validate   # valida os ficheiros de data/ (src/main.py)
+make dashboard  # arranca o dashboard Shiny
+\end{lstlisting}
+
+\section{Estratégia de Git}
+
 O repositório Git segue uma branch por funcionalidade (\texttt{feature-*}),
 integrada em \texttt{main} através de \textit{pull requests} no GitHub, sem
 eliminar as branches após a integração --- estratégia detalhada no
 \texttt{README.md}.
+
+\subsection{Branches e Pull Requests}
+
+A Tabela~\ref{tab:branches} resume as branches criadas e o respetivo
+conteúdo, cada uma integrada em \texttt{main} por uma \textit{pull request}
+independente.
+
+\begin{table}[H]\centering
+  \begin{tabular}{ll}
+    \textbf{Branch} & \textbf{Conteúdo} \\ \hline
+    \texttt{feature-alertas-validacao} & Funcionalidade própria e expansão dos testes \\
+    \texttt{feature-readme}            & README, planeamento e estratégia de git \\
+    \texttt{feature-relatorio}         & Relatório em LaTeX \\
+    \texttt{feature-automacao}         & \texttt{Makefile} de automação de tarefas \\
+  \end{tabular}
+  \caption{Branches de funcionalidade e o seu conteúdo}\label{tab:branches}
+\end{table}
 
 \chapter{Conclusão}
 \label{chap:conclusao}
