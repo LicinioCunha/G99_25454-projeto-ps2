@@ -13,6 +13,7 @@
 \usepackage{xcolor}
 \usepackage{tikz}          % para o grafo da hierarquia de pastas
 \usepackage{caption}
+\usepackage{float}         % para forcar a posicao exata de figuras com [H]
 \usepackage{etoolbox}
 \usepackage{titlesec}
 
@@ -22,7 +23,7 @@
 \makeatletter
 \patchcmd{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}
 \makeatother
-\titlespacing*{\chapter}{0pt}{0pt}{1.2em}
+\titlespacing*{\chapter}{0pt}{2.2em}{1.2em}
 \titleformat{\chapter}[hang]{\normalfont\Large\bfseries}{\thechapter.}{0.6em}{}
 
 % estilo básico para listagens de código
@@ -37,7 +38,7 @@
 }
 
 \title{Trabalho Prático\\\large Análise de Débitos Diretos (PS2)}
-\author{Grupo 99 --- Licínio Cunha (nº 25454) \\ Docente: Óscar Ribeiro}
+\author{Grupo 99 --- Licínio Cunha (nº 25454) \\[1.5em] Docente: Óscar Ribeiro}
 \date{Laboratórios de Informática --- LESIPL --- 2025/26}
 
 \begin{document}
@@ -51,6 +52,7 @@
 \lstlistoflistings
 
 % ------------------------ capítulos --------------------------
+\clearpage
 \chapter{Introdução}
 
 Os \emph{débitos diretos} são um dos meios de cobrança mais usados entre
@@ -207,7 +209,6 @@ grupos de vistas:
     qualidade de dados sem ser preciso consultar a consola.
 \end{itemize}
 
-\clearpage
 \begin{lstlisting}[caption={Agregação da funcionalidade própria (\texttt{ps2/agregacao.py})},label=lst:alertas]
 def resumo_alertas(ficheiros: list[Ficheiro]) -> list[dict]:
     return [
@@ -224,8 +225,7 @@ def resumo_alertas(ficheiros: list[Ficheiro]) -> list[dict]:
     ]
 \end{lstlisting}
 
-\clearpage
-\begin{figure}[!htb]\centering
+\begin{figure}[H]\centering
 \includegraphics[width=0.85\textwidth]{img/dashboard.png}
 \caption{Vista principal do dashboard, com os filtros de período/cliente e a tabela de Alertas de Validação}\label{fig:dashboard}
 \end{figure}
