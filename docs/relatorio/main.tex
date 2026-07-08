@@ -6,12 +6,24 @@
 \usepackage[portuguese]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage[margin=2.5cm]{geometry}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{tikz}          % para o grafo da hierarquia de pastas
 \usepackage{caption}
+\usepackage{etoolbox}
+\usepackage{titlesec}
+
+% documento tem de caber em 10 paginas: capitulos nao forcam quebra de
+% pagina e o titulo do capitulo fica mais compacto (em vez do estilo
+% "banner" por omissao da classe report)
+\makeatletter
+\patchcmd{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}
+\makeatother
+\titlespacing*{\chapter}{0pt}{0pt}{1.2em}
+\titleformat{\chapter}[hang]{\normalfont\Large\bfseries}{\thechapter.}{0.6em}{}
 
 % estilo básico para listagens de código
 \lstset{
