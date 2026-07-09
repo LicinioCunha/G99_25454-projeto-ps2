@@ -21,7 +21,10 @@ pip install -r requirements.txt
 # 3. validar os ficheiros de dados
 python src/main.py
 
-# 4. abrir o dashboard
+# 4. correr os testes
+pytest
+
+# 5. abrir o dashboard
 shiny run --reload src/app.py
 # depois abrir http://127.0.0.1:8000 no browser
 ```
@@ -44,6 +47,7 @@ projeto-ps2/
 │   │   └── carregador.py  # leitura + parsing de alto nível
 │   ├── main.py           # relatório de validação (CLI)
 │   └── app.py            # dashboard Shiny
+├── tests/               # testes unitários e de integração (pytest)
 ├── docs/relatorio/      # relatório em LaTeX
 ├── requirements.txt
 └── README.md
@@ -66,21 +70,60 @@ projeto-ps2/
 | | nº registos | 16–21 |
 
 > **Nota sobre validação de NIB:** a regra do Anexo B (`int(nib) % 97 == 1`)
-> marca todos os NIBs dos dados como inválidos — o próprio exemplo do enunciado
-> dá 96, não 1. A confirmar com o docente.
+> marca todos os NIBs dos dados (e o próprio exemplo do Anexo B, que dá 96 em
+> vez de 1) como inválidos. A regra foi implementada literalmente como está
+> descrita no enunciado (ver `tests/test_validacao.py::test_valida_nib_exemplo_anexo_b`);
+> fica a aguardar confirmação do docente se o algoritmo pretendido é outro.
+
+## Testes
+
+O projeto tem testes unitários (parsing, validação de NIF/NIB, validação de
+estrutura, agregações) e um teste de integração que carrega toda a pasta
+`data/`. Correr com:
+
+```bash
+pytest -v
+```
+
+## Funcionalidade própria
+
+**Alertas de Validação**: uma vista no dashboard (tabela + contador) que
+resume, ficheiro a ficheiro, quantos NIF/NIB falham a validação dos Anexos A
+e B. A validação de estrutura já garante que os totais e o nº de registos
+batem certo; esta vista dá visibilidade imediata à qualidade dos dados
+(NIF do ordenante e NIBs de cliente) diretamente no dashboard, sem ser preciso
+consultar a consola (`src/main.py`). Implementada em `ps2/agregacao.py`
+(`resumo_alertas`) e exposta em `src/app.py` (`tabela_alertas`).
 
 ## Estratégia de trabalho no Git
 
-Trabalho individual — sem divisão de tarefas por elementos de grupo.
+Trabalho individual — sem divisão de tarefas por elementos de grupo, mas
+seguindo a mesma disciplina de branches + *pull requests* pedida para
+trabalho em grupo:
 
-| Elemento | Nº | Branch | Período |
-|---|---|---|---|
-| Licínio Cunha | 25454 | `feature-leitura` | 20/06 a 09/07/2026 |
+- Uma branch de funcionalidade por tema (ex.: `feature-alertas-validacao`,
+  `feature-readme`), nunca commits diretos em `main`.
+- Integração em `main` sempre por *pull request* no GitHub (mesmo sendo o
+  único contribuidor), para manter o histórico de alterações documentado.
+- Branches **não são eliminadas** depois de integradas.
+- Mensagens de commit em português, no imperativo, com prefixo semântico
+  (`feat:`, `fix:`, `chore:`, `docs:`, `test:`).
 
-## Funcionalidade própria do grupo
-
-_Descrever aqui a funcionalidade extra escolhida (ver `src/app.py`, secção TODO)._
+| Elemento | Nº | Período |
+|---|---|---|
+| Licínio Cunha | 25454 | 20/06 a 09/07/2026 |
 
 ## Conclusão
 
-_A escrever no fim do trabalho._
+O trabalho cobre o ciclo completo pedido no enunciado: leitura dos ficheiros
+PS2 da pasta `data/`, validação de estrutura e de NIF/NIB (Anexos A e B),
+agregação da informação (por mês e por cliente) e um dashboard interativo em
+Shiny com filtro de período, comparação de clientes e a funcionalidade
+própria de alertas de validação. A maior dificuldade foi confirmar as
+posições exatas dos campos no layout PS2 simplificado (resolvida por
+inspeção direta dos ficheiros de exemplo) e perceber que os próprios exemplos
+do enunciado (NIF e NIB) não batem certo com o algoritmo descrito — decidiu-se
+implementar as regras tal como documentadas e assinalar essa discrepância nos
+testes e neste README. Como trabalho futuro, ficam por explorar: exportação
+dos alertas para CSV, deteção de meses atípicos por desvio-padrão, e suporte
+a IBAN (PT50 + NIB) em vez do NIB isolado.
