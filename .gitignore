@@ -17,6 +17,7 @@ docs/relatorio/*.out
 docs/relatorio/*.toc
 docs/relatorio/*.lof
 docs/relatorio/*.lot
+docs/relatorio/*.lol
 docs/relatorio/*.bbl
 docs/relatorio/*.blg
 docs/relatorio/*.synctex.gz
